@@ -1,5 +1,7 @@
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiThreadQueue {
 
@@ -9,7 +11,10 @@ public class MultiThreadQueue {
     private boolean isQueueEmpty;
     private int front;
     private int rear;
-    private int actual;
+    private AtomicInteger actual;
+
+    private final Object putLock = new Object();
+    private final Object getLock = new Object();
 
     MultiThreadQueue(int limit) throws Exception {
         if (limit != 0) {
@@ -30,25 +35,27 @@ public class MultiThreadQueue {
         this(9);
     }
 
-    public synchronized int get() throws Exception {
-        System.out.println("---actual--- " + actual);
-        if (actual == 0) isQueueEmpty = true;
-        while (isQueueEmpty) {
-            try {
-                wait();
-            } catch (InterruptedException e) {
-                throw new Exception("Empty wait is interrupted");
+    public  int get() throws Exception {
+        synchronized (getLock) {
+            System.out.println("---actual--- " + actual);
+            if (actual == 0) isQueueEmpty = true;
+            while (isQueueEmpty) {
+                try {
+                    getLock.wait();
+                } catch (InterruptedException e) {
+                    throw new Exception("Empty wait is interrupted");
+                }
             }
+            int x = queue[front];
+
+            front = (front + 1) % limit;
+            actual--;
+
+            isLimitReached = false;
+            getLock.notify();
+
+            return x;
         }
-        int x = queue[front];
-
-        front = (front + 1) % limit;
-        actual--;
-
-        isLimitReached = false;
-//        notify();
-
-        return x;
     }
 
     public synchronized void put(int n) throws Exception {
