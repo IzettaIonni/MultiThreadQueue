@@ -1,4 +1,4 @@
-public class ManyProducersToOneConsumer {
+public class Main {
 
 
 

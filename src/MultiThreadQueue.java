@@ -1,4 +1,5 @@
 import java.util.InvalidPropertiesFormatException;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -47,15 +48,22 @@ public class MultiThreadQueue<T> {
     }
 
     public void offer(T obj) {
+
         Node<T> next = new Node<T>(obj);
 
-        if (head == null) {
-            head = tail = next;
+        synchronized (putLock) {
+
+            if (head == null) {
+                synchronized (putLock) {
+                    if (head == null) head = tail = next;
+                }
+            }
+            else {
+                tail.setNext(next);
+                tail = next;
+            }
         }
-        else {
-            tail.setNext(next);
-            tail = next;
-        }
+
     }
 
     public T poll() {
@@ -76,7 +84,7 @@ public class MultiThreadQueue<T> {
     public  int get() throws Exception {
         synchronized (getLock) {
             System.out.println("---actual--- " + actual);
-            if (actual == 0) isQueueEmpty = true;
+            if (actual.get() == 0) isQueueEmpty = true;
             while (isQueueEmpty) {
                 try {
                     getLock.wait();
@@ -87,7 +95,7 @@ public class MultiThreadQueue<T> {
             int x = queue[front];
 
             front = (front + 1) % limit;
-            actual--;
+            actual.decrementAndGet();
 
             isLimitReached = false;
             getLock.notify();
