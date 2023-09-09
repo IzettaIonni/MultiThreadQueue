@@ -11,7 +11,7 @@ public class Consumer implements Runnable{
     public void run() {
         while (true) {
             try {
-                System.out.println("Consumed: " + queue.get());
+                System.out.println("Consumed: " + queue.poll());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

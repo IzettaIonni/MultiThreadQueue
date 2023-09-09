@@ -44,7 +44,7 @@ public class MultiThreadQueue<T> {
     }
 
     MultiThreadQueue(int size) throws IllegalArgumentException {
-        if (size != 0) {
+        if (size > 0) {
             capacity = size;
             count = new AtomicInteger(0);
         }
@@ -60,7 +60,7 @@ public class MultiThreadQueue<T> {
     public void offer(T value) throws InterruptedException {
         final int c;
         synchronized (putLock) {
-            while (count.get() == capacity) {
+            while (count.get() >= capacity) {
                 putLock.wait();
             }
             enqueue(new Node<>(value));
@@ -68,20 +68,21 @@ public class MultiThreadQueue<T> {
             if (c < capacity)
                 putLock.notify();
         }
-        if (capacity == 1)
+        if (count.get() >= 1)
             releaseGetLock();
     }
 
     public T poll() throws InterruptedException {
         final T value;
+        final int c;
         synchronized (getLock) {
-            while (count.get() == 0) {
+            while (count.get() <= 0) {
                 getLock.wait();
             }
             value = dequeue();
-            count.decrementAndGet();
-            if (count.get() > 0)
-                releaseGetLock();
+            c = count.decrementAndGet();
+            if (c > 0)
+                getLock.notify();
         }
         if (count.get() < capacity)
             releasePutLock();
