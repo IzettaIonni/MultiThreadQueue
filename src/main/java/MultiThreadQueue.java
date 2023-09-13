@@ -45,6 +45,7 @@ public class MultiThreadQueue<T> {
 
     MultiThreadQueue(int size) throws IllegalArgumentException {
         if (size > 0) {
+            head = tail = new Node<T>(null);
             capacity = size;
             count = new AtomicInteger(0);
         }

@@ -13,7 +13,7 @@ public class Producer implements Runnable{
         while (i < 50) {
             try {
                 i++;
-                queue.put(i);
+                queue.offer(i);
                 System.out.println("Produced: " + i);
             } catch (Exception e) {
                 throw new RuntimeException(e);
