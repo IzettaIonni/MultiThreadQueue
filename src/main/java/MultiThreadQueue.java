@@ -1,3 +1,4 @@
+import java.time.Clock;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiThreadQueue<T> {
@@ -58,10 +59,11 @@ public class MultiThreadQueue<T> {
         this(10);
     }
 
-    public void offer(T value) throws InterruptedException {
+    public void put(T value) throws InterruptedException {
         final int c;
         synchronized (putLock) {
             while (count.get() >= capacity) {
+                System.out.println("-----------------offer is locked---------------"); //todo delete
                 putLock.wait();
             }
             enqueue(new Node<>(value));
@@ -73,12 +75,58 @@ public class MultiThreadQueue<T> {
             releaseGetLock();
     }
 
-    public T poll() throws InterruptedException {
+    public T take() throws InterruptedException {
         final T value;
         final int c;
         synchronized (getLock) {
             while (count.get() <= 0) {
+                System.out.println("-----------------poll is locked---------------"); //todo delete
                 getLock.wait();
+            }
+            value = dequeue();
+            c = count.decrementAndGet();
+            if (c > 0)
+                getLock.notify();
+        }
+        if (count.get() < capacity)
+            releasePutLock();
+        return value;
+    }
+
+    public boolean offer(T value, long timeout) throws InterruptedException {
+        final int c;
+        Clock clock = Clock.systemDefaultZone();
+        long timeoutCountdown;
+        synchronized (putLock) {
+            while (count.get() >= capacity) {
+                System.out.println("-----------------offer is locked---------------"); //todo delete
+                timeoutCountdown = clock.millis();
+                putLock.wait(timeout);
+                if (clock.millis() - timeoutCountdown >= timeout)
+                    return false;
+            }
+            enqueue(new Node<>(value));
+            c = count.incrementAndGet();
+            if (c < capacity)
+                putLock.notify();
+        }
+        if (count.get() >= 1)
+            releaseGetLock();
+        return true;
+    }
+
+    public T poll(long timeout) throws InterruptedException {
+        final T value;
+        final int c;
+        Clock clock = Clock.systemDefaultZone();
+        long timeoutCountdown;
+        synchronized (getLock) {
+            while (count.get() <= 0) {
+                System.out.println("-----------------poll is locked---------------"); //todo delete
+                timeoutCountdown = clock.millis();
+                getLock.wait(timeout);
+                if (clock.millis() - timeoutCountdown >= timeout)
+                    return null;
             }
             value = dequeue();
             c = count.decrementAndGet();
