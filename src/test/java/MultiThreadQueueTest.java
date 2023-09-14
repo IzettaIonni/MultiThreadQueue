@@ -29,13 +29,14 @@ class MultiThreadQueueTest {
         elements = 10000;
     }
 
+    void createRunners(int producers, int consumers) {
+
+    }
+
     @AfterEach
-    void tearDown(TestInfo info) {
-        if (info.getDisplayName().contains("singleThread")) {
-            return;
-        }
-        producersRunner.shutdown();
-        consumersRunner.shutdown();
+    void tearDown() {
+//        producersRunner.shutdown();
+//        consumersRunner.shutdown();
     }
 
     @Test

@@ -1,14 +1,23 @@
+import lombok.AllArgsConstructor;
+import lombok.NonNull;
+
 import java.time.Clock;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@AllArgsConstructor
 public class MultiThreadQueue<T> {
 
+    @NonNull
     private final int capacity;
+    @NonNull
     private final AtomicInteger count;
+    @NonNull
+    private final Clock clock;//= Clock.systemDefaultZone();
 
-    private final Object putLock = new Object();
-    private final Object getLock = new Object();
+    @NonNull
+    private final Object putLock;//= new Object();
+    @NonNull
+    private final Object getLock;//= new Object();
 
     private Node<T> head;
     private Node<T> tail;
@@ -24,118 +33,115 @@ public class MultiThreadQueue<T> {
 
     private void enqueue(Node<T> node) {
         tail = tail.next = node;
+        if (count.incrementAndGet() < capacity)
+            putLock.notify();
     }
 
     private T dequeue() {
         head = head.next;
         T t = head.value;
         head.value = null;
+        if (count.decrementAndGet() > 0)
+            getLock.notify();
         return t;
     }
 
-    private void releaseGetLock() {
-        synchronized (getLock) {
-            getLock.notify();
+    private void notifyReaders() {
+        if (count.get() >= 1) {
+            synchronized (getLock) {
+                getLock.notify();
+            }
         }
     }
 
-    private void releasePutLock() {
-        synchronized (putLock) {
-            putLock.notify();
+    private void notifyWriters() {
+        if (count.get() < capacity) {
+            synchronized (putLock) {
+                putLock.notify();
+            }
         }
     }
 
-    MultiThreadQueue(int size) throws IllegalArgumentException {
-        if (size > 0) {
-            head = tail = new Node<T>(null);
-            capacity = size;
-            count = new AtomicInteger(0);
-        }
-        else {
-            throw new IllegalArgumentException("Limit must be 1 or bigger");
-        }
+//    MultiThreadQueue(int size) throws IllegalArgumentException {
+//        if (size > 0) {
+//            head = tail = new Node<T>(null);
+//            capacity = size;
+//            count = new AtomicInteger(0);
+//        }
+//        else {
+//            throw new IllegalArgumentException("Limit must be 1 or bigger");
+//        }
+//    }
+//
+//    MultiThreadQueue() throws Exception {
+//        this(10);
+//    }
+    private MultiThreadQueue(
+        int capacity, AtomicInteger count, Clock clock, Object putLock, Object getLock, Node<T> node) {
+    this(capacity, count, clock, putLock, getLock, node, node);
     }
 
-    MultiThreadQueue() throws Exception {
+    public MultiThreadQueue(
+            int capacity, AtomicInteger count, Clock clock, Object putLock, Object getLock) {
+        this(capacity, count, clock, putLock, getLock, new Node<>(null));
+    }
+
+    public MultiThreadQueue(int capacity) {
+        this(capacity, new AtomicInteger(), Clock.systemDefaultZone(), new Object(), new Object());
+    }
+
+    public MultiThreadQueue() {
         this(10);
     }
 
     public void put(T value) throws InterruptedException {
-        final int c;
         synchronized (putLock) {
             while (count.get() >= capacity) {
-                System.out.println("-----------------put is locked---------------"); //todo delete
                 putLock.wait();
             }
             enqueue(new Node<>(value));
-            c = count.incrementAndGet();
-            if (c < capacity)
-                putLock.notify();
         }
-        if (count.get() >= 1)
-            releaseGetLock();
+        notifyReaders();
     }
 
     public T take() throws InterruptedException {
         final T value;
-        final int c;
         synchronized (getLock) {
             while (count.get() <= 0) {
-                System.out.println("-----------------take is locked---------------"); //todo delete
                 getLock.wait();
             }
             value = dequeue();
-            c = count.decrementAndGet();
-            if (c > 0)
-                getLock.notify();
         }
-        if (count.get() < capacity)
-            releasePutLock();
+        notifyWriters();
         return value;
     }
 
     public boolean offer(T value, long timeoutMillis) throws InterruptedException {
-        final int c;
-        Clock clock = Clock.systemDefaultZone();
-        long timeoutCountdown;
+        long timeoutCountdown = clock.millis();
         synchronized (putLock) {
             while (count.get() >= capacity) {
-                System.out.println("-----------------offer is locked---------------"); //todo delete
-                timeoutCountdown = clock.millis();
                 putLock.wait(timeoutMillis);
                 if (clock.millis() - timeoutCountdown >= timeoutMillis)
                     return false;
             }
             enqueue(new Node<>(value));
-            c = count.incrementAndGet();
-            if (c < capacity)
-                putLock.notify();
         }
-        if (count.get() >= 1)
-            releaseGetLock();
+        notifyReaders();
         return true;
     }
 
     public T poll(long timeoutMillis) throws InterruptedException {
         final T value;
-        final int c;
-        Clock clock = Clock.systemDefaultZone();
-        long timeoutCountdown;
+        long timeoutCountdown = clock.millis();
         synchronized (getLock) {
             while (count.get() <= 0) {
-                System.out.println("-----------------poll is locked---------------"); //todo delete
-                timeoutCountdown = clock.millis();
                 getLock.wait(timeoutMillis);
                 if (clock.millis() - timeoutCountdown >= timeoutMillis)
                     return null;
             }
             value = dequeue();
-            c = count.decrementAndGet();
-            if (c > 0)
-                getLock.notify();
         }
-        if (count.get() < capacity)
-            releasePutLock();
+        notifyWriters();
         return value;
     }
 
@@ -143,18 +149,13 @@ public class MultiThreadQueue<T> {
         if (count.get() >= capacity) {
             return false;
         }
-        final int c;
         synchronized (putLock) {
             if (count.get() >= capacity) {
                 return false;
             }
             enqueue(new Node<>(value));
-            c = count.incrementAndGet();
-            if (c < capacity)
-                putLock.notify();
         }
-        if (count.get() >= 1)
-            releaseGetLock();
+        notifyReaders();
         return true;
     }
 
@@ -162,17 +163,12 @@ public class MultiThreadQueue<T> {
         if (count.get() == 0)
             return null;
         final T value;
-        final int c;
         synchronized (getLock) {
             if (count.get() == 0)
                 return null;
             value = dequeue();
-            c = count.decrementAndGet();
-            if (c > 0)
-                getLock.notify();
         }
-        if (count.get() < capacity)
-            releasePutLock();
+        notifyWriters();
         return value;
     }
 
