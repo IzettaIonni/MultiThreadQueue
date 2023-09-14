@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 class MultiThreadQueueTest {
@@ -208,15 +208,14 @@ class MultiThreadQueueTest {
     void offerTimeoutTest_fullQueue_singleThread() {
         Clock clock = Clock.systemDefaultZone();
         long expectedTimeout = 100;
-        var expectedValue = false;
         for (int i = 0; i < 10; i++) {
             queue.put(i);
         }
         var actualTimeout = clock.millis();
         var actualValue = queue.offer(1, expectedTimeout);
-        actualTimeout -= clock.millis();
-        assertEquals(expectedTimeout, actualTimeout);
-        assertEquals(expectedValue, actualValue);
+        actualTimeout = clock.millis() - actualTimeout;
+        assertTrue(actualTimeout > expectedTimeout && actualTimeout < expectedTimeout * 2);
+        assertFalse(actualValue);
     }
 
     @Test
@@ -233,11 +232,11 @@ class MultiThreadQueueTest {
     void pollTimeoutTest_emptyQueue_singleThread() {
         Clock clock = Clock.systemDefaultZone();
         long expectedTimeout = 100;
-        Object expectedValue = null;
         var actualTimeout = clock.millis();
         var actualValue = queue.poll(expectedTimeout);
-        actualTimeout -= clock.millis();
-        assertEquals(expectedValue, actualValue);
+        actualTimeout = clock.millis() - actualTimeout;
+        assertTrue(actualTimeout > expectedTimeout && actualTimeout < expectedTimeout * 2);
+        assertNull(actualValue);
     }
 
     @Test
@@ -252,12 +251,11 @@ class MultiThreadQueueTest {
     @Test
     @SneakyThrows
     void offerNoTimeoutTest_fullQueue_singleThread() {
-        var expectedValue = false;
         for (int i = 0; i < 10; i++) {
             queue.put(i);
         }
         var actualValue = queue.offer(1);
-        assertEquals(expectedValue, actualValue);
+        assertFalse(actualValue);
     }
 
     @Test
@@ -272,9 +270,8 @@ class MultiThreadQueueTest {
     @Test
     @SneakyThrows
     void pollNoTimeoutTest_emptyQueue_singleThread() {
-        Object expectedValue = null;
         var actualValue = queue.poll();
-        assertEquals(expectedValue, actualValue);
+        assertNull(actualValue);
     }
 
 }

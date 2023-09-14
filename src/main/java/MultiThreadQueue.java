@@ -64,7 +64,7 @@ public class MultiThreadQueue<T> {
         final int c;
         synchronized (putLock) {
             while (count.get() >= capacity) {
-                System.out.println("-----------------offer is locked---------------"); //todo delete
+                System.out.println("-----------------put is locked---------------"); //todo delete
                 putLock.wait();
             }
             enqueue(new Node<>(value));
@@ -81,7 +81,7 @@ public class MultiThreadQueue<T> {
         final int c;
         synchronized (getLock) {
             while (count.get() <= 0) {
-                System.out.println("-----------------poll is locked---------------"); //todo delete
+                System.out.println("-----------------take is locked---------------"); //todo delete
                 getLock.wait();
             }
             value = dequeue();
