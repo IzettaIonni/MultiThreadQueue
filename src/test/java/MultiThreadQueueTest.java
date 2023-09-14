@@ -2,6 +2,7 @@ import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,16 +20,19 @@ class MultiThreadQueueTest {
     MultiThreadQueue<Integer> queue;
     ExecutorService producersRunner;
     ExecutorService consumersRunner;
+    long elements;
 
     @BeforeEach
     void startUp() throws Exception {
         queue = new MultiThreadQueue<Integer>();
-        producersRunner = Executors.newFixedThreadPool(4);
-        consumersRunner = Executors.newFixedThreadPool(4);
+        elements = 10000;
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown(TestInfo info) {
+        if (info.getDisplayName().contains("singleThread")) {
+            return;
+        }
         producersRunner.shutdown();
         consumersRunner.shutdown();
     }
@@ -37,14 +41,13 @@ class MultiThreadQueueTest {
     @SneakyThrows
     void queueTest_singleThread() {
         long actual = 0;
-        final int elements = 10000;
         for (int i = 1; i <= elements; i++) {
 
             System.out.println(Thread.currentThread().getName() + " produced: " + i);
-            queue.offer(i);
+            queue.put(i);
 
             System.out.println(Thread.currentThread().getName() + " trying to consume");
-            var n = queue.poll();
+            var n = queue.take();
             System.out.println(Thread.currentThread().getName() + " consumed: " + n);
             actual += i;
 
@@ -56,9 +59,102 @@ class MultiThreadQueueTest {
     @Test
     @SneakyThrows
     void queueTest_equalAmount() {
+        producersRunner = Executors.newFixedThreadPool(4);
+        consumersRunner = Executors.newFixedThreadPool(4);
         final AtomicLong sumCounter = new AtomicLong();
-        final int elements = 10000;
-        CountDownLatch cdl = new CountDownLatch(elements);
+        CountDownLatch cdl = new CountDownLatch((int) elements);
+        List<Runnable> producersTasks = new ArrayList<>();
+        List<Runnable> consumersTasks = new ArrayList<>();
+
+        for (int i = 1; i <= elements; i++) {
+            final int j = i;
+
+            producersTasks.add(new Runnable() {
+                @Override
+                @SneakyThrows
+                public void run() {
+
+                    System.out.println(Thread.currentThread().getName() + " produced: " + j);
+                    queue.put(j);
+                }
+            });
+
+            consumersTasks.add(new Runnable() {
+                @Override
+                @SneakyThrows
+                public void run() {
+                    System.out.println(Thread.currentThread().getName() + " trying to consume");
+                    var n = queue.take();
+                    System.out.println(Thread.currentThread().getName() + " consumed: " + n);
+                    sumCounter.addAndGet(n);
+                    cdl.countDown();
+                }
+            });
+        }
+
+        Collections.shuffle(consumersTasks);
+        Collections.shuffle(producersTasks);
+        producersTasks.forEach(producersRunner::execute);
+        consumersTasks.forEach(consumersRunner::execute);
+        long expected = elements * (elements + 1) / 2;
+        cdl.await();
+        var actual = sumCounter.get();
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @SneakyThrows
+    void queueTest_moreProducers() {
+        producersRunner = Executors.newFixedThreadPool(7);
+        consumersRunner = Executors.newFixedThreadPool(1);
+        final AtomicLong sumCounter = new AtomicLong();
+        CountDownLatch cdl = new CountDownLatch((int) elements);
+        List<Runnable> producersTasks = new ArrayList<>();
+        List<Runnable> consumersTasks = new ArrayList<>();
+
+        for (int i = 1; i <= elements; i++) {
+            final int j = i;
+
+            producersTasks.add(new Runnable() {
+                @Override
+                @SneakyThrows
+                public void run() {
+
+                    System.out.println(Thread.currentThread().getName() + " produced: " + j);
+                    queue.put(j);
+                }
+            });
+
+            consumersTasks.add(new Runnable() {
+                @Override
+                @SneakyThrows
+                public void run() {
+                    System.out.println(Thread.currentThread().getName() + " trying to consume");
+                    var n = queue.take();
+                    System.out.println(Thread.currentThread().getName() + " consumed: " + n);
+                    sumCounter.addAndGet(n);
+                    cdl.countDown();
+                }
+            });
+        }
+
+        Collections.shuffle(consumersTasks);
+        Collections.shuffle(producersTasks);
+        producersTasks.forEach(producersRunner::execute);
+        consumersTasks.forEach(consumersRunner::execute);
+        long expected = elements * (elements + 1) / 2;
+        cdl.await();
+        var actual = sumCounter.get();
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @SneakyThrows
+    void queueTest_moreConsumers() {
+        producersRunner = Executors.newFixedThreadPool(1);
+        consumersRunner = Executors.newFixedThreadPool(7);
+        final AtomicLong sumCounter = new AtomicLong();
+        CountDownLatch cdl = new CountDownLatch((int) elements);
         List<Runnable> producersTasks = new ArrayList<>();
         List<Runnable> consumersTasks = new ArrayList<>();
         for (int i = 1; i <= elements; i++) {
@@ -70,7 +166,7 @@ class MultiThreadQueueTest {
                 public void run() {
 
                     System.out.println(Thread.currentThread().getName() + " produced: " + j);
-                    queue.offer(j);
+                    queue.put(j);
                 }
             });
 
@@ -79,8 +175,58 @@ class MultiThreadQueueTest {
                 @SneakyThrows
                 public void run() {
                     System.out.println(Thread.currentThread().getName() + " trying to consume");
-                    var n = queue.poll();
+                    var n = queue.take();
                     System.out.println(Thread.currentThread().getName() + " consumed: " + n);
+                    sumCounter.addAndGet(n);
+                    cdl.countDown();
+                }
+            });
+        }
+
+        Collections.shuffle(consumersTasks);
+        Collections.shuffle(producersTasks);
+        producersTasks.forEach(producersRunner::execute);
+        consumersTasks.forEach(consumersRunner::execute);
+        long expected = elements * (elements + 1) / 2;
+        cdl.await();
+        var actual = sumCounter.get();
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @SneakyThrows
+    void queueTest_() {
+        producersRunner = Executors.newFixedThreadPool(1);
+        consumersRunner = Executors.newFixedThreadPool(7);
+        final AtomicLong sumCounter = new AtomicLong();
+        CountDownLatch cdl = new CountDownLatch((int) elements);
+        List<Runnable> producersTasks = new ArrayList<>();
+        List<Runnable> consumersTasks = new ArrayList<>();
+
+        for (int i = 1; i <= elements; i++) {
+            final int j = i;
+
+            producersTasks.add(new Runnable() {
+                @Override
+                @SneakyThrows
+                public void run() {
+
+                    System.out.println(Thread.currentThread().getName() + " produced: " + j);
+                    if (!queue.offer(j, 10))
+                        System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+                }
+            });
+
+            consumersTasks.add(new Runnable() {
+                @Override
+                @SneakyThrows
+                public void run() {
+                    System.out.println(Thread.currentThread().getName() + " trying to consume");
+                    var n = queue.poll(10);
+                    System.out.println(Thread.currentThread().getName() + " consumed: " + n);
+                    if (n == null) {
+                        System.out.println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB");
+                    }
                     sumCounter.addAndGet(n);
                     cdl.countDown();
                 }
