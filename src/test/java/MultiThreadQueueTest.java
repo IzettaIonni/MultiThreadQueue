@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -195,52 +196,85 @@ class MultiThreadQueueTest {
 
     @Test
     @SneakyThrows
-    void queueTest_() {
-        producersRunner = Executors.newFixedThreadPool(1);
-        consumersRunner = Executors.newFixedThreadPool(7);
-        final AtomicLong sumCounter = new AtomicLong();
-        CountDownLatch cdl = new CountDownLatch((int) elements);
-        List<Runnable> producersTasks = new ArrayList<>();
-        List<Runnable> consumersTasks = new ArrayList<>();
-
-        for (int i = 1; i <= elements; i++) {
-            final int j = i;
-
-            producersTasks.add(new Runnable() {
-                @Override
-                @SneakyThrows
-                public void run() {
-
-                    System.out.println(Thread.currentThread().getName() + " produced: " + j);
-                    if (!queue.offer(j, 10))
-                        System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-                }
-            });
-
-            consumersTasks.add(new Runnable() {
-                @Override
-                @SneakyThrows
-                public void run() {
-                    System.out.println(Thread.currentThread().getName() + " trying to consume");
-                    var n = queue.poll(10);
-                    System.out.println(Thread.currentThread().getName() + " consumed: " + n);
-                    if (n == null) {
-                        System.out.println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB");
-                    }
-                    sumCounter.addAndGet(n);
-                    cdl.countDown();
-                }
-            });
-        }
-
-        Collections.shuffle(consumersTasks);
-        Collections.shuffle(producersTasks);
-        producersTasks.forEach(producersRunner::execute);
-        consumersTasks.forEach(consumersRunner::execute);
-        long expected = elements * (elements + 1) / 2;
-        cdl.await();
-        var actual = sumCounter.get();
+    void offerTimeoutTest_singleThread() {
+        var expected = Integer.valueOf(77);
+        queue.offer(expected, 100);
+        var actual = queue.take();
         assertEquals(expected, actual);
+    }
+
+    @Test
+    @SneakyThrows
+    void offerTimeoutTest_fullQueue_singleThread() {
+        Clock clock = Clock.systemDefaultZone();
+        long expectedTimeout = 100;
+        var expectedValue = false;
+        for (int i = 0; i < 10; i++) {
+            queue.put(i);
+        }
+        var actualTimeout = clock.millis();
+        var actualValue = queue.offer(1, expectedTimeout);
+        actualTimeout -= clock.millis();
+        assertEquals(expectedTimeout, actualTimeout);
+        assertEquals(expectedValue, actualValue);
+    }
+
+    @Test
+    @SneakyThrows
+    void pollTimeoutTest_singleThread() {
+        var expected = Integer.valueOf(77);
+        queue.put(expected);
+        var actual = queue.poll(100);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @SneakyThrows
+    void pollTimeoutTest_emptyQueue_singleThread() {
+        Clock clock = Clock.systemDefaultZone();
+        long expectedTimeout = 100;
+        Object expectedValue = null;
+        var actualTimeout = clock.millis();
+        var actualValue = queue.poll(expectedTimeout);
+        actualTimeout -= clock.millis();
+        assertEquals(expectedValue, actualValue);
+    }
+
+    @Test
+    @SneakyThrows
+    void offerNoTimeoutTest_singleThread() {
+        var expected = Integer.valueOf(77);
+        queue.offer(expected);
+        var actual = queue.take();
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @SneakyThrows
+    void offerNoTimeoutTest_fullQueue_singleThread() {
+        var expectedValue = false;
+        for (int i = 0; i < 10; i++) {
+            queue.put(i);
+        }
+        var actualValue = queue.offer(1);
+        assertEquals(expectedValue, actualValue);
+    }
+
+    @Test
+    @SneakyThrows
+    void pollNoTimeoutTest_singleThread() {
+        var expected = Integer.valueOf(86);
+        queue.put(expected);
+        var actual = queue.poll();
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @SneakyThrows
+    void pollNoTimeoutTest_emptyQueue_singleThread() {
+        Object expectedValue = null;
+        var actualValue = queue.poll();
+        assertEquals(expectedValue, actualValue);
     }
 
 }

@@ -1,4 +1,5 @@
 import java.time.Clock;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiThreadQueue<T> {
@@ -93,7 +94,7 @@ public class MultiThreadQueue<T> {
         return value;
     }
 
-    public boolean offer(T value, long timeout) throws InterruptedException {
+    public boolean offer(T value, long timeoutMillis) throws InterruptedException {
         final int c;
         Clock clock = Clock.systemDefaultZone();
         long timeoutCountdown;
@@ -101,8 +102,8 @@ public class MultiThreadQueue<T> {
             while (count.get() >= capacity) {
                 System.out.println("-----------------offer is locked---------------"); //todo delete
                 timeoutCountdown = clock.millis();
-                putLock.wait(timeout);
-                if (clock.millis() - timeoutCountdown >= timeout)
+                putLock.wait(timeoutMillis);
+                if (clock.millis() - timeoutCountdown >= timeoutMillis)
                     return false;
             }
             enqueue(new Node<>(value));
@@ -115,7 +116,7 @@ public class MultiThreadQueue<T> {
         return true;
     }
 
-    public T poll(long timeout) throws InterruptedException {
+    public T poll(long timeoutMillis) throws InterruptedException {
         final T value;
         final int c;
         Clock clock = Clock.systemDefaultZone();
@@ -124,8 +125,8 @@ public class MultiThreadQueue<T> {
             while (count.get() <= 0) {
                 System.out.println("-----------------poll is locked---------------"); //todo delete
                 timeoutCountdown = clock.millis();
-                getLock.wait(timeout);
-                if (clock.millis() - timeoutCountdown >= timeout)
+                getLock.wait(timeoutMillis);
+                if (clock.millis() - timeoutCountdown >= timeoutMillis)
                     return null;
             }
             value = dequeue();
@@ -137,4 +138,42 @@ public class MultiThreadQueue<T> {
             releasePutLock();
         return value;
     }
+
+    public boolean offer(T value) {
+        if (count.get() >= capacity) {
+            return false;
+        }
+        final int c;
+        synchronized (putLock) {
+            if (count.get() >= capacity) {
+                return false;
+            }
+            enqueue(new Node<>(value));
+            c = count.incrementAndGet();
+            if (c < capacity)
+                putLock.notify();
+        }
+        if (count.get() >= 1)
+            releaseGetLock();
+        return true;
+    }
+
+    public T poll() {
+        if (count.get() == 0)
+            return null;
+        final T value;
+        final int c;
+        synchronized (getLock) {
+            if (count.get() == 0)
+                return null;
+            value = dequeue();
+            c = count.decrementAndGet();
+            if (c > 0)
+                getLock.notify();
+        }
+        if (count.get() < capacity)
+            releasePutLock();
+        return value;
+    }
+
 }
