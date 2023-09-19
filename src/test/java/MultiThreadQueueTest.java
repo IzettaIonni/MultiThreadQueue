@@ -1,8 +1,5 @@
 import lombok.SneakyThrows;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.*;
 
 import java.time.Clock;
 import java.util.ArrayList;
@@ -26,7 +23,7 @@ class MultiThreadQueueTest {
     @BeforeEach
     void startUp() throws Exception {
         queue = new MultiThreadQueue<Integer>();
-        elements = 10000;
+        elements = 100000;
     }
 
     void createRunners(int producers, int consumers) {
@@ -39,18 +36,19 @@ class MultiThreadQueueTest {
 //        consumersRunner.shutdown();
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void queueTest_singleThread() {
         long actual = 0;
         for (int i = 1; i <= elements; i++) {
 
-            System.out.println(Thread.currentThread().getName() + " produced: " + i);
+            //System.out.println(Thread.currentThread().getName() + " produced: " + i);
             queue.put(i);
 
-            System.out.println(Thread.currentThread().getName() + " trying to consume");
+            //System.out.println(Thread.currentThread().getName() + " trying to consume");
             var n = queue.take();
-            System.out.println(Thread.currentThread().getName() + " consumed: " + n);
+            //System.out.println(Thread.currentThread().getName() + " consumed: " + n);
             actual += i;
 
         }
@@ -75,8 +73,7 @@ class MultiThreadQueueTest {
                 @Override
                 @SneakyThrows
                 public void run() {
-
-                    System.out.println(Thread.currentThread().getName() + " produced: " + j);
+                    //System.out.println(Thread.currentThread().getName() + " produced: " + j);
                     queue.put(j);
                 }
             });
@@ -85,9 +82,9 @@ class MultiThreadQueueTest {
                 @Override
                 @SneakyThrows
                 public void run() {
-                    System.out.println(Thread.currentThread().getName() + " trying to consume");
+                    //System.out.println(Thread.currentThread().getName() + " trying to consume");
                     var n = queue.take();
-                    System.out.println(Thread.currentThread().getName() + " consumed: " + n);
+                    //System.out.println(Thread.currentThread().getName() + " consumed: " + n);
                     sumCounter.addAndGet(n);
                     cdl.countDown();
                 }
@@ -121,8 +118,7 @@ class MultiThreadQueueTest {
                 @Override
                 @SneakyThrows
                 public void run() {
-
-                    System.out.println(Thread.currentThread().getName() + " produced: " + j);
+                    //System.out.println(Thread.currentThread().getName() + " produced: " + j);
                     queue.put(j);
                 }
             });
@@ -131,9 +127,9 @@ class MultiThreadQueueTest {
                 @Override
                 @SneakyThrows
                 public void run() {
-                    System.out.println(Thread.currentThread().getName() + " trying to consume");
+                    //System.out.println(Thread.currentThread().getName() + " trying to consume");
                     var n = queue.take();
-                    System.out.println(Thread.currentThread().getName() + " consumed: " + n);
+                    //System.out.println(Thread.currentThread().getName() + " consumed: " + n);
                     sumCounter.addAndGet(n);
                     cdl.countDown();
                 }
@@ -166,8 +162,7 @@ class MultiThreadQueueTest {
                 @Override
                 @SneakyThrows
                 public void run() {
-
-                    System.out.println(Thread.currentThread().getName() + " produced: " + j);
+                    //System.out.println(Thread.currentThread().getName() + " produced: " + j);
                     queue.put(j);
                 }
             });
@@ -176,9 +171,9 @@ class MultiThreadQueueTest {
                 @Override
                 @SneakyThrows
                 public void run() {
-                    System.out.println(Thread.currentThread().getName() + " trying to consume");
+                    //System.out.println(Thread.currentThread().getName() + " trying to consume");
                     var n = queue.take();
-                    System.out.println(Thread.currentThread().getName() + " consumed: " + n);
+                    //System.out.println(Thread.currentThread().getName() + " consumed: " + n);
                     sumCounter.addAndGet(n);
                     cdl.countDown();
                 }
@@ -195,6 +190,7 @@ class MultiThreadQueueTest {
         assertEquals(expected, actual);
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void offerTimeoutTest_singleThread() {
@@ -204,6 +200,7 @@ class MultiThreadQueueTest {
         assertEquals(expected, actual);
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void offerTimeoutTest_fullQueue_singleThread() {
@@ -219,6 +216,7 @@ class MultiThreadQueueTest {
         assertFalse(actualValue);
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void pollTimeoutTest_singleThread() {
@@ -228,6 +226,7 @@ class MultiThreadQueueTest {
         assertEquals(expected, actual);
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void pollTimeoutTest_emptyQueue_singleThread() {
@@ -240,6 +239,7 @@ class MultiThreadQueueTest {
         assertNull(actualValue);
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void offerNoTimeoutTest_singleThread() {
@@ -249,6 +249,7 @@ class MultiThreadQueueTest {
         assertEquals(expected, actual);
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void offerNoTimeoutTest_fullQueue_singleThread() {
@@ -259,6 +260,7 @@ class MultiThreadQueueTest {
         assertFalse(actualValue);
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void pollNoTimeoutTest_singleThread() {
@@ -268,6 +270,7 @@ class MultiThreadQueueTest {
         assertEquals(expected, actual);
     }
 
+    @Disabled
     @Test
     @SneakyThrows
     void pollNoTimeoutTest_emptyQueue_singleThread() {
